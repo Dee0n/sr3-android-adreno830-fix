@@ -1,0 +1,136 @@
+# Saints Row: The Third (Feral, Android) — фикс картинки и производительности
+
+Настройки графики для мобильного порта **Saints Row: The Third** от Feral Interactive, которых нет в меню игры. Ставятся по USB через `adb`, без root и без модификации APK: меняется только файл настроек игры.
+
+Проверено на **ASUS ROG Phone 9 Pro** (Snapdragon 8 Elite, Adreno 830, Android 16), игра версии 1.0.3. На других устройствах с Adreno 830 должно работать так же; на остальных — на свой риск, профили подбирались под этот чип.
+
+*English summary is at the [bottom](#english).*
+
+## Что не так «из коробки»
+
+Feral назначает настройки по модели GPU. Для Adreno 830 это:
+
+- **Мыльная картинка.** Игра рендерит в 900p и сверху накладывает динамическое разрешение 70–85 %. На экран 1080p в итоге растягивается кадр высотой 630–765 строк.
+- **Скачки частоты кадров.** Пока экран не трогают, игра сама опускается до 30 fps и поднимается обратно только при касании.
+- **Дорогой SSAO.** Затенение SSAO на этом GPU стоит почти четверть времени кадра — больше, чем тени.
+
+## Профили
+
+| Профиль | Цель | Разрешение рендера | Что отключено |
+|---|---|---|---|
+| `balanced` (по умолчанию) | 40 fps | 1080p × 70–100 % | SSAO, экранные отражения (SSLR) |
+| `quality` | 30 fps | 1080p × 75–100 % | SSAO, SSLR |
+| `smooth` | 60 fps | 1080p × 55–80 % | SSAO, SSLR; тени и туман на low |
+
+Во всех профилях убран режим «30 fps без касаний». 40 fps выбраны не случайно: на панели 120 Гц это ровно каждый третий кадр, поэтому картинка идёт без рывков.
+
+### Экспериментально: тайловое освещение
+
+В движке есть скрытый флаг `UseGraphicsTiledLighting` (в корне раздела `Setup`). С ним кадр в 1080p занимал 36–40 мс против 43–46 мс без него (три пары замеров). В основные профили он **не включён**: освещение сцены с ним выглядит иначе, а точка появления персонажа между загрузками менялась, так что чистого сравнения «кадр в кадр» нет. Попробовать поверх любого профиля:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\apply-fix.ps1 -Profile experimental-tiled
+```
+
+Убрать — `-Restore` и применить основной профиль заново.
+
+Результаты проверки: см. [Замеры](#замеры).
+
+## Установка
+
+Нужно: Windows с PowerShell (или `pwsh` на Linux/macOS), [platform-tools](https://developer.android.com/tools/releases/platform-tools) (`adb`), USB-кабель.
+
+1. На телефоне включите «Для разработчиков» → «Отладка по USB», подключите кабель и подтвердите запрос отладки.
+2. Запустите игру хотя бы один раз и закройте её, чтобы появился файл настроек.
+3. Скачайте репозиторий и выполните в его папке:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\apply-fix.ps1
+```
+
+Другой профиль или свой путь к `adb`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\apply-fix.ps1 -Profile smooth -Adb C:\platform-tools\adb.exe
+```
+
+4. Запустите игру. Профиль записывается в пресет «Графика»: если в меню игры выбрать другой пресет, действовать будут его заводские значения.
+
+### Откат
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\apply-fix.ps1 -Restore
+```
+
+Перед первым изменением скрипт сохраняет оригинал в `/sdcard/sr3fix_backup/preferences.orig`, а перед каждым следующим — копию с датой. Сохранения игры скрипт не трогает.
+
+### Вручную, без скрипта
+
+Файл настроек — XML по пути
+`/sdcard/Android/data/com.feralinteractive.saintsrow3_android/files/feral_app_support/preferences`.
+Заберите его через `adb pull`, поменяйте значения из нужного файла в [`profiles/`](profiles) (разделы относятся к ключу `HKEY_CURRENT_USER\Software\Feral Interactive\Saints Row The Third\Setup`) и верните через `adb push` при закрытой игре.
+
+## Важно про нагрев и режим телефона
+
+Эта игра упирается в нагрев GPU, а не в настройки. На ROG Phone 9 Pro кристалл GPU выходит на порог 75 °C уже во время загрузки уровня, и телефон держит GPU на 5–7-й ступени ограничения из 13 — при том что системный «тепловой статус» остаётся нулевым. Поэтому:
+
+- **Нативные 1080p @ 60 fps со всеми эффектами пассивно недостижимы.** Заводские пресеты Feral стоят примерно на тепловом потолке; профили отсюда перераспределяют тот же бюджет в пользу разрешения.
+- **Внешний кулер** (AeroActive Cooler) даёт прямой прирост.
+- **Проверьте режим питания.** Энергосбережение ASUS ограничивает процессор до 0,96 ГГц из 3,5 — в игре это катастрофа. Включите Режим X и не играйте с низким зарядом: телефон сам возвращает экономию.
+
+## Замеры
+
+Способ: `tools/measure-fps.ps1` читает реальные времена кадров из SurfaceFlinger. Сцена — начало миссии в переулке, камера неподвижна, лимит кадров снят, динамическое разрешение выключено, телефон прогрет до установившегося троттлинга.
+
+Стоимость эффектов в 1080p (базовый кадр — заводской пресет «Графика», 44,4 мс):
+
+| Изменение | Время кадра, мс | Выигрыш |
+|---|---|---|
+| База: тени medium, SSAO low, SSLR, туман medium | 44,4 | — |
+| SSAO выключен | 34,7 | 9,7 |
+| Тени выключены | 37,6 | 6,8 |
+| Туман выключен | 41,5 | 2,9 |
+| SSLR выключен | 42,4 | 2,0 |
+| Тени, SSAO, SSLR и туман выключены | 24,4 | 20,0 |
+| Тени, SSAO и туман на high | 48,4 | −4,0 |
+| 900p вместо 1080p | 33,8 | 10,6 |
+| 720p вместо 1080p | 24,5–28,2 | 16–20 |
+
+Базовый замер повторялся шесть раз за три часа: 43,2–45,9 мс, то есть погрешность около ±1,5 мс. Разница от тумана и SSLR в неё укладывается; остальные строки — нет. Каждая строка, кроме базы и 720p, — один прогон.
+
+Проверка профилей:
+
+| Настройки | Рендер | Без касаний: средний / 1 % худших | С касанием: средний / 1 % худших |
+|---|---|---|---|
+| Заводские («Графика», лимит 60) | 630–765p | 30,0 / 24,1 fps | 52,7 / 30,1 fps |
+| `quality` | 810–1080p | 29,7 / 20,3 fps | 29,0 / 20,3 fps |
+| `balanced` | 756–1080p | 38,3 / 30,5 fps | 37,3 / 30,5 fps |
+| `smooth` | 594–864p | 57,6 / 30,5 fps | 56,6 / 30,5 fps |
+
+Каждый профиль — два замера по 15 секунд в той же сцене на прогретом телефоне. Целевая частота держится большую часть времени, но не идеально: единичные кадры проваливаются на ступень ниже (у `quality` — до 20 fps). Текущий множитель динамического разрешения игра наружу не отдаёт, поэтому в колонке «Рендер» указан диапазон, а не фактическое значение.
+
+Что проверено и **не** помогло (разницы с базой нет): `EnableFragmentDensity`, `RenderPassGBufferDownSample`, `UseHalfFloats` + `EnableGBufferBandWidthOpts`, `MergeTonemapCompositePasses`, `VulkanUseSecondaryCmdBuffersForGraphicsPass`, `UseExperimentalUpscaler`.
+
+## Ограничения
+
+- Замеры сделаны в одной сцене на одном устройстве. В открытом городе на машине нагрузка выше; для этого в профилях оставлен запас динамического разрешения, но сама поездка по городу здесь не измерялась.
+- Feral обновляет серверный файл спецификаций при каждом запуске. За время тестов он правки не затирал, но новый «live update» под Adreno 830 может вернуть заводские значения — тогда примените профиль заново.
+- Игра иногда зависает на стартовом экране «Сохранение…» — это случалось и на заводских настройках, с фиксом не связано.
+
+## Измерить у себя
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\measure-fps.ps1 -Seconds 15
+```
+
+С ключом `-Touch` скрипт во время замера медленно ведёт камеру.
+
+## English
+
+Unofficial graphics/performance profiles for Feral's Android port of **Saints Row: The Third**, tested on an ASUS ROG Phone 9 Pro (Adreno 830). No root and no APK changes: `apply-fix.ps1` edits the game's `preferences` file over `adb` and keeps a backup (`-Restore` puts it back).
+
+What it changes versus Feral's Adreno 830 defaults: render height 900 → 1080 with a wider dynamic-resolution range, no drop to 30 fps while the screen is untouched, a 30 / 40 / 60 fps target depending on the profile, and SSAO plus screen-space reflections off to pay for the resolution. A hidden engine flag, `UseGraphicsTiledLighting=1`, measured 12–17 % faster on this GPU but changes how lighting looks, so it ships as an opt-in `experimental-tiled` profile.
+
+The game is thermally limited on this phone (GPU junction sits at its 75 °C trip point), so native 1080p at 60 fps with every effect on is out of reach without active cooling.
+
+Not affiliated with Feral Interactive, Deep Silver or Volition. You need to own the game.

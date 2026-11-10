@@ -1,0 +1,32 @@
+{
+  "description": "Sharp 30: native 1080p (dynamic resolution 75-100%), 30 fps target. SSAO and screen-space reflections off to pay for the resolution; shadows, fog and cubemap reflections stay.",
+  "values": {
+    ".": {
+      "FixedScreenHeight": { "type": "integer", "value": "1080" }
+    },
+    "GraphicsPreset": {
+      "GfxResolutionScale": { "type": "double",  "value": "1.000000" },
+      "GfxMaxScaling":      { "type": "double",  "value": "1.000000" },
+      "GfxMinScaling":      { "type": "double",  "value": "0.750000" },
+      "GfxIdleFps":         { "type": "integer", "value": "30" },
+      "GfxResponsiveFps":   { "type": "integer", "value": "30" },
+      "GfxAA":              { "type": "string",  "value": "taa" },
+      "GfxShadow":          { "type": "string",  "value": "medium" },
+      "GfxSSAO":            { "type": "string",  "value": "off" },
+      "GfxSSLR":            { "type": "string",  "value": "off" },
+      "GfxVolumetricFog":   { "type": "string",  "value": "medium" },
+      "GfxCubemapReflections": { "type": "integer", "value": "1" }
+    },
+    "DynamicResolutionScaling": {
+      "Enable":     { "type": "integer", "value": "1" },
+      "MaxScaling": { "type": "double",  "value": "1.000000" },
+      "MinScaling": { "type": "double",  "value": "0.750000" },
+      "FPSTarget":  { "type": "double",  "value": "30.000000" }
+    },
+    "GameOptions": {
+      "GfxMobilePreset":       { "type": "string",  "value": "graphics" },
+      "GfxOverrideFps":        { "type": "integer", "value": "30" },
+      "GfxOverrideFpsEnabled": { "type": "integer", "value": "1" }
+    }
+  }
+}

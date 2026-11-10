@@ -1,0 +1,8 @@
+﻿{
+  "description": "EXPERIMENTAL add-on: tiled lighting path. Apply on top of another profile. Measured 36-40 ms vs 43-46 ms per frame at 1080p on Adreno 830, but lighting looks different, so it is not part of the default profiles.",
+  "values": {
+    ".": {
+      "UseGraphicsTiledLighting": { "type": "integer", "value": "1" }
+    }
+  }
+}
